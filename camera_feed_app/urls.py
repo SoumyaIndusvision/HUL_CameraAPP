@@ -1,8 +1,16 @@
-from django.urls import path
-from .views import ClusterNamesListView, ClusterCamerasView, CameraStreamView
+from rest_framework.routers import DefaultRouter
+from .views import (
+    ClusterViewSet,
+    MachineViewSet,
+    CameraViewSet,
+    CameraStreamView
+)
 
-urlpatterns = [
-    path('clusters/names/', ClusterNamesListView.as_view(), name='cluster_names'),
-    path('clusters/<int:cluster_id>/cameras/', ClusterCamerasView.as_view(), name='cluster_cameras'),
-    path('camera/<int:camera_id>/stream/', CameraStreamView.as_view(), name='camera_stream'),
-]
+# Create a router to automatically generate URLs for ViewSets
+router = DefaultRouter()
+router.register(r'clusters', ClusterViewSet, basename='clusters')
+router.register(r'machines', MachineViewSet, basename='machines')
+router.register(r'cameras', CameraViewSet, basename='cameras')
+router.register(r'stream', CameraStreamView, basename='camera_stream')
+
+urlpatterns = router.urls

@@ -3,6 +3,9 @@ from django.urls import path, include, re_path
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
+from rest_framework_simplejwt.views import (
+    TokenRefreshView
+)
 
 # Define the schema view for Swagger
 schema_view = get_schema_view(
@@ -19,10 +22,13 @@ schema_view = get_schema_view(
 )
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('api/', include('camera_feed_app.urls')),  # Include your app's URL patterns
-    
-    # Swagger and ReDoc URLs
+    path('admin/', admin.site.urls),  # Admin Panel
+    path('api/', include('camera_feed_app.urls')),  # Include app-level URL patterns
+    path('api/', include('users.urls')),
+    path('api/refresh_token/', TokenRefreshView.as_view(), name='token_refresh'),
+
+
+    # Swagger and ReDoc URLs for API documentation
     re_path(r'^swagger(?P<format>\.json|\.yaml)$', schema_view.without_ui(cache_timeout=0), name='schema-json'),
     re_path(r'^swagger/$', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     re_path(r'^redoc/$', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),

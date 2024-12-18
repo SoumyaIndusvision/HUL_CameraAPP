@@ -5,3 +5,4 @@ pillow>=8.4.0
 django-cors-headers>=3.10.0
 django-sslserver>=0.22
 drf-yasg
+djangorestframework-simplejwt

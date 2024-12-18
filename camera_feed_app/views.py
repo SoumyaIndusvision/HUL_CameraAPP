@@ -1,74 +1,112 @@
-from rest_framework.views import APIView
-from rest_framework.generics import ListAPIView
+from rest_framework import viewsets, status
 from rest_framework.response import Response
-from rest_framework import status
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
-from .models import Cluster, Camera
-from .serializers import CameraSerializer, ClusterSerializer, ClusterNameSerializer
+from .models import Cluster, Machine, Camera
+from .serializers import (
+    ClusterSerializer, ClusterDetailSerializer,
+    MachineSerializer, MachineDetailSerializer,
+    CameraSerializer, CameraDetailSerializer,
+    CameraStreamSerializer
+)
 from .streaming import stream_camera_feed
 
-class ClusterNamesListView(ListAPIView):
-    queryset = Cluster.objects.all()
-    serializer_class = ClusterNameSerializer
 
-    @swagger_auto_schema(
-        operation_description="Retrieve a list of all clusters (names and IDs only)",
-        responses={200: ClusterSerializer(many=True)}
-    )
-    def get(self, request, *args, **kwargs):
-        clusters = self.get_queryset()
-        data = [{"id": cluster.id, "name": cluster.name} for cluster in clusters]
-        return Response(data, status=status.HTTP_200_OK)
+class ClusterViewSet(viewsets.ViewSet):
+    """ViewSet for managing clusters"""
 
-class ClusterCamerasView(APIView):
-    @swagger_auto_schema(
-        operation_description="Retrieve cameras for a specific cluster",
-        responses={
-            200: CameraSerializer(many=True),
-            404: openapi.Response('Cluster not found')
-        },
-        manual_parameters=[
-            openapi.Parameter(
-                'cluster_id',
-                openapi.IN_PATH,
-                description="ID of the cluster to retrieve cameras",
-                type=openapi.TYPE_INTEGER
-            )
-        ]
-    )
-    def get(self, request, cluster_id, *args, **kwargs):
+    def list(self, request):
+        clusters = Cluster.objects.all()
+        serializer = ClusterSerializer(clusters, many=True)
+        return Response(serializer.data)
+
+    @swagger_auto_schema(request_body=ClusterSerializer)
+    def create(self, request):
+        serializer = ClusterSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def retrieve(self, request, pk=None):
         try:
-            cluster = Cluster.objects.get(id=cluster_id)
-            cameras = cluster.cameras.all()
-            serializer = CameraSerializer(cameras, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            cluster = Cluster.objects.get(pk=pk)
+            serializer = ClusterDetailSerializer(cluster)
+            return Response(serializer.data)
         except Cluster.DoesNotExist:
             return Response({"error": "Cluster not found"}, status=status.HTTP_404_NOT_FOUND)
 
-class CameraStreamView(APIView):
+
+class MachineViewSet(viewsets.ViewSet):
+    """ViewSet for managing machines"""
+
+    def list(self, request):
+        machines = Machine.objects.all()
+        serializer = MachineSerializer(machines, many=True)
+        return Response(serializer.data)
+
+    def retrieve(self, request, pk=None):
+        try:
+            machine = Machine.objects.get(pk=pk)
+            serializer = MachineDetailSerializer(machine)
+            return Response(serializer.data)
+        except Machine.DoesNotExist:
+            return Response({"error": "Machine not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    @swagger_auto_schema(request_body=MachineSerializer)
+    def create(self, request):
+        serializer = MachineSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class CameraViewSet(viewsets.ViewSet):
+    """ViewSet for managing cameras"""
+
+    def list(self, request):
+        cameras = Camera.objects.all()
+        serializer = CameraSerializer(cameras, many=True)
+        return Response(serializer.data)
+
+    def retrieve(self, request, pk=None):
+        try:
+            camera = Camera.objects.get(pk=pk)
+            serializer = CameraDetailSerializer(camera)
+            return Response(serializer.data)
+        except Camera.DoesNotExist:
+            return Response({"error": "Camera not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    @swagger_auto_schema(request_body=CameraSerializer)
+    def create(self, request):
+        serializer = CameraSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class CameraStreamView(viewsets.ViewSet):
+    """ViewSet for streaming camera feeds"""
+
     @swagger_auto_schema(
-        operation_description="Stream a live camera feed by camera ID",
-        responses={
-            200: openapi.Response('Success'),
-            404: openapi.Response('Camera not found'),
-            500: openapi.Response('Camera inactive or connection error')
-        },
         manual_parameters=[
             openapi.Parameter(
-                'camera_id',
-                openapi.IN_PATH,
+                'camera_id', openapi.IN_PATH,
                 description="ID of the camera to stream",
                 type=openapi.TYPE_INTEGER
             )
         ]
     )
-    def get(self, request, camera_id, *args, **kwargs):
+    def retrieve(self, request, pk=None):
         try:
-            camera = Camera.objects.get(id=camera_id)
-            return stream_camera_feed(camera)
+            camera = Camera.objects.get(pk=pk)
+            # Simulate streaming logic from the streaming module
+            stream_data = stream_camera_feed(camera)
+            serializer = CameraStreamSerializer(data=stream_data)
+            if serializer.is_valid():
+                return Response(serializer.data)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         except Camera.DoesNotExist:
             return Response({"status": "inactive", "message": "Camera not found"}, status=status.HTTP_404_NOT_FOUND)
-
-
-
