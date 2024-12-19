@@ -35,6 +35,15 @@ class ClusterViewSet(viewsets.ViewSet):
             return Response(serializer.data)
         except Cluster.DoesNotExist:
             return Response({"error": "Cluster not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+    def retrieve_machines(self, request, pk=None):
+        try:
+            cluster = Cluster.objects.get(pk=pk)
+            machines = cluster.machines.all()
+            serializer = MachineSerializer(machines, many=True)
+            return Response(serializer.data)
+        except Cluster.DoesNotExist:
+            return Response({"error": "Cluster not found"}, status=status.HTTP_404_NOT_FOUND)
 
 
 class MachineViewSet(viewsets.ViewSet):
@@ -60,6 +69,15 @@ class MachineViewSet(viewsets.ViewSet):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def retrieve_cameras(self, request, pk=None):
+        try:
+            machine = Machine.objects.get(pk=pk)
+            cameras = machine.cameras.all()
+            serializer = CameraSerializer(cameras, many=True)
+            return Response(serializer.data)
+        except Machine.DoesNotExist:
+            return Response({"error": "Machine not found"}, status=status.HTTP_404_NOT_FOUND)
 
 
 class CameraViewSet(viewsets.ViewSet):
