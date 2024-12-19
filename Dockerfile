@@ -1,18 +1,19 @@
-# Use an official Python runtime as a parent image
-FROM python:3.9-slim
+FROM python:3.10-slim
 
-# Set the working directory inside the container
+# Install required system packages
+RUN apt-get update && apt-get install -y \
+    libgl1 \
+    libglib2.0-0 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY requirements.txt /app/
 WORKDIR /app
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the current directory contents into the container at /app
+# Copy application code
 COPY . /app/
 
-# Install dependencies
-RUN pip install --upgrade pip
-RUN pip install -r requirements.txt
-
-# Expose the port the app runs on
-EXPOSE 8000
-
-# Run the Django development server (this can be modified based on your needs)
+# Run the application
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
