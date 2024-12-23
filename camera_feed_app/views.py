@@ -6,7 +6,7 @@ from .models import Cluster, Machine, Camera
 from .serializers import (
     ClusterSerializer,
     MachineSerializer,
-    CameraSerializer, CameraDetailSerializer,
+    CameraSerializer,
     CameraStreamSerializer
 )
 from .streaming import stream_camera_feed
@@ -79,13 +79,6 @@ class ClusterViewSet(viewsets.ViewSet):
             return Response({"message": "Cluster deleted successfully", "status": "204"})
         except Cluster.DoesNotExist:
             return Response({'message': 'Cluster not found', "status": status.HTTP_404_NOT_FOUND}, status=status.HTTP_404_NOT_FOUND)
-    
-from drf_yasg.utils import swagger_auto_schema
-from drf_yasg import openapi
-from rest_framework import viewsets, status
-from rest_framework.response import Response
-from .models import Machine
-from .serializers import MachineSerializer
 
 class MachineViewSet(viewsets.ViewSet):
     """
