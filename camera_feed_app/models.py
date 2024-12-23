@@ -8,7 +8,7 @@ class Cluster(models.Model):
 
 class Machine(models.Model):
     name = models.CharField(max_length=255)  # Name of the machine
-    cluster = models.ForeignKey(Cluster, on_delete=models.CASCADE, related_name='machines')  # Association with Cluster
+    cluster = models.ForeignKey(Cluster, on_delete=models.SET_NULL, related_name='machines',null=True,blank=True)  # Association with Cluster
 
     def __str__(self):
         return f"{self.name} ({self.cluster.name})"

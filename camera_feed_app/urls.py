@@ -16,6 +16,4 @@ router.register(r'stream', CameraStreamView, basename='camera_stream')
 
 # Extend urlpatterns to include hierarchical filtering endpoints
 urlpatterns = router.urls + [
-    path('clusters/<int:pk>/machines/', ClusterViewSet.as_view({'get': 'retrieve_machines'}), name='cluster-machines'),
-    path('machines/<int:pk>/cameras/', MachineViewSet.as_view({'get': 'retrieve_cameras'}), name='machine-cameras'),
 ]

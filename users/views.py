@@ -47,22 +47,22 @@ class UserAPIView(viewsets.ViewSet):
         # Password validations
         if len(password) < 8:
             return Response(
-                {"error": "Password must be at least 8 characters long."},
+                {"message": "Password must be at least 8 characters long."},
                 status=status.HTTP_400_BAD_REQUEST
             )
         if not re.search(r'[A-Z]', password):
             return Response(
-                {"error": "Password must contain at least one uppercase character."},
+                {"message": "Password must contain at least one uppercase character."},
                 status=status.HTTP_400_BAD_REQUEST
             )
         if not re.search(r'\d', password):
             return Response(
-                {"error": "Password must contain at least one number."},
+                {"message": "Password must contain at least one number."},
                 status=status.HTTP_400_BAD_REQUEST
             )
         if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
             return Response(
-                {"error": "Password must contain at least one special character."},
+                {"message": "Password must contain at least one special character."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -73,7 +73,7 @@ class UserAPIView(viewsets.ViewSet):
             user.set_password(password)  # Hash the password
             user.save()
             return Response({"message": "User created successfully."}, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.messages, status=status.HTTP_400_BAD_REQUEST)
 
     # UPDATE USER
     @swagger_auto_schema(
@@ -92,13 +92,13 @@ class UserAPIView(viewsets.ViewSet):
         try:
             user = User.objects.get(pk=pk)
         except User.DoesNotExist:
-            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"message": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 
         serializer = UserSerializer(user, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response({"message": "User updated successfully."}, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.messages, status=status.HTTP_400_BAD_REQUEST)
 
     # RETRIEVE SINGLE USER
     def retrieve(self, request, pk=None):
@@ -108,7 +108,7 @@ class UserAPIView(viewsets.ViewSet):
             serializer = UserSerializer(user)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except User.DoesNotExist:
-            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"message": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 
     # DELETE USER
     def destroy(self, request, pk=None):
@@ -118,7 +118,7 @@ class UserAPIView(viewsets.ViewSet):
             user.delete()
             return Response({"message": "User deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
         except User.DoesNotExist:
-            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"message": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 
     # LIST USERS
     def list(self, request):
@@ -151,7 +151,7 @@ class LoginAPIView(viewsets.ViewSet):
 
         if not username or not password:
             return Response(
-                {"error": "Both username and password are required."},
+                {"message": "Both username and password are required."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -161,135 +161,130 @@ class LoginAPIView(viewsets.ViewSet):
             return Response(
                 {
                     "message": "Login successful.",
-                    "user": {
-                        "id": user.id,
-                        "username": user.username,
-                        "email": user.email,
-                    },
+                    
+                    "user_id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    
                     "access_token": tokens["access_token"],
                     "refresh_token": tokens["refresh_token"]
                 },
                 status=status.HTTP_200_OK
             )
         return Response(
-            {"error": "Invalid credentials."},
+            {"message": "Invalid credentials."},
             status=status.HTTP_401_UNAUTHORIZED
         )
 
-
 class PasswordResetViewSet(viewsets.ViewSet):
     """
-    ViewSet for Resetting User Password
+    ViewSet for Resetting User Password with Username Verification
     """
 
     @swagger_auto_schema(
-        operation_description="Reset password by providing new password and confirm new password",
+        operation_description="Verify user legitimacy using the username.",
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
-            required=['new_password', 'confirm_new_password'],
+            required=['username'],
             properties={
+                'username': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description="Username of the account."
+                ),
+            },
+        )
+    )
+    def create(self, request):
+        """
+        Verify the legitimacy of the user using their username (POST method).
+        """
+        username = request.data.get('username')
+
+        if not username:
+            return Response(
+                {"message": "Username is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            user = User.objects.get(username=username)
+            return Response(
+                {"message": "User verified successfully.", "user_id": user.id},
+                status=status.HTTP_200_OK
+            )
+        except User.DoesNotExist:
+            return Response(
+                {"message": "User not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+    @swagger_auto_schema(
+        operation_description="Reset the password for the verified user by providing new password and confirm new password.",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['user_id', 'new_password', 'confirm_new_password'],
+            properties={
+                'user_id': openapi.Schema(
+                    type=openapi.TYPE_INTEGER,
+                    description="ID of the verified user."
+                ),
                 'new_password': openapi.Schema(
                     type=openapi.TYPE_STRING,
-                    description="New password for the account"
+                    description="New password for the account."
                 ),
                 'confirm_new_password': openapi.Schema(
                     type=openapi.TYPE_STRING,
-                    description="Confirmation of the new password"
+                    description="Confirmation of the new password."
                 ),
             },
-        ),
-        responses={
-            200: openapi.Response(
-                description="Password reset successfully",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'message': openapi.Schema(
-                            type=openapi.TYPE_STRING,
-                            description="Success message"
-                        ),
-                    }
-                )
-            ),
-            400: openapi.Response(
-                description="Bad request - validation error",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'error': openapi.Schema(
-                            type=openapi.TYPE_STRING,
-                            description="Error message"
-                        ),
-                    }
-                )
-            ),
-            404: openapi.Response(
-                description="User not found",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'error': openapi.Schema(
-                            type=openapi.TYPE_STRING,
-                            description="Error message"
-                        ),
-                    }
-                )
-            ),
-        }
+        )
     )
-    @action(detail=True, methods=['post'], url_path='reset-password', permission_classes=[AllowAny])
-    def reset_password(self, request, pk=None):
+    def update(self, request, pk=None):
         """
-        Reset password for a specific user
+        Reset password for a verified user (PUT method).
         """
+        user_id = request.data.get('user_id')
         new_password = request.data.get('new_password')
         confirm_new_password = request.data.get('confirm_new_password')
 
-        # Validate input presence
-        if not new_password or not confirm_new_password:
+        if not user_id or not new_password or not confirm_new_password:
             return Response(
-                {"error": "New password and confirm new password are required."},
+                {"message": "User ID, new password, and confirm new password are required."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Validate if passwords match
         if new_password != confirm_new_password:
             return Response(
-                {"error": "New passwords do not match."},
+                {"message": "New passwords do not match."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Validate password length
         if len(new_password) < 8:
             return Response(
-                {"error": "New password must be at least 8 characters long."},
+                {"message": "New password must be at least 8 characters long."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Validate at least one uppercase character
         if not re.search(r'[A-Z]', new_password):
             return Response(
-                {"error": "New password must contain at least one uppercase character."},
+                {"message": "New password must contain at least one uppercase character."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Validate at least one digit
         if not re.search(r'\d', new_password):
             return Response(
-                {"error": "New password must contain at least one number."},
+                {"message": "New password must contain at least one number."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Validate at least one special character
         if not re.search(r'[!@#$%^&*(),.?":{}|<>]', new_password):
             return Response(
-                {"error": "New password must contain at least one special character."},
+                {"message": "New password must contain at least one special character."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Update password
         try:
-            user = User.objects.get(pk=pk)
+            user = User.objects.get(pk=user_id)
             user.set_password(new_password)  # Using Django's set_password for proper hashing
             user.save()
             return Response(
@@ -298,6 +293,6 @@ class PasswordResetViewSet(viewsets.ViewSet):
             )
         except User.DoesNotExist:
             return Response(
-                {"error": "User not found."},
+                {"message": "User not found."},
                 status=status.HTTP_404_NOT_FOUND
             )

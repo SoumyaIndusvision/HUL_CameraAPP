@@ -5,20 +5,19 @@ from .models import Cluster, Machine, Camera
 class ClusterSerializer(serializers.ModelSerializer):
     class Meta:
         model = Cluster
-        fields = ['id', 'name']
+        fields = '__all__'
 
 
 class MachineSerializer(serializers.ModelSerializer):
-    cluster_name = serializers.CharField(source='cluster.name', read_only=True)
-
     class Meta:
         model = Machine
-        fields = ['id', 'name', 'cluster', 'cluster_name']
+        fields = '__all__' 
 
-    def validate_cluster(self, value):
-        if not Cluster.objects.filter(pk=value.id).exists():
-            raise serializers.ValidationError("Cluster does not exist.")
-        return value
+    
+class CameraSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Camera
+        fields = '__all__'
 
 
 class ClusterDetailSerializer(serializers.ModelSerializer):
