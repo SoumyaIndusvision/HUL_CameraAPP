@@ -163,7 +163,15 @@ class CameraViewSet(viewsets.ViewSet):
 
     @swagger_auto_schema(
         operation_description="List all cameras for a given machine.",
-        responses={200: CameraSerializer(many=True)}
+        responses={200: CameraSerializer(many=True)},
+        manual_parameters=[
+            openapi.Parameter(
+                'machine_id', openapi.IN_QUERY, 
+                description="Filter machines by cluster ID", 
+                type=openapi.TYPE_INTEGER, 
+                required=False
+            )
+        ]
     )
     def list(self, request):
         machine_id = request.query_params.get('machine_id')
