@@ -19,8 +19,3 @@ class CameraSerializer(serializers.ModelSerializer):
         model = Camera
         fields = '__all__'
 
-
-class CameraStreamSerializer(serializers.Serializer):
-    status = serializers.CharField()
-    message = serializers.CharField()
-    stream_url = serializers.URLField(allow_blank=True, required=False)

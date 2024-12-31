@@ -36,15 +36,16 @@ def stream_camera_feed(camera):
             while True:
                 ret, frame = cap.read()
                 if not ret:
-                    break
-                
-                # Encode the frame to JPEG
+                    logger.warning("Frame not received. Attempting to reconnect.")
+                    cap.release()
+                    cap.open(camera_url)  # Reconnect
+                    continue
+
                 _, jpeg = cv2.imencode('.jpg', frame)
                 frame = jpeg.tobytes()
-                
-                # Yield the frame as MJPEG stream
                 yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')
+                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')
+
         
         return StreamingHttpResponse(generate(), content_type='multipart/x-mixed-replace; boundary=frame')
     

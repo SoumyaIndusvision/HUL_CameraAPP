@@ -13,7 +13,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 from pathlib import Path
 from datetime import timedelta
 from django.conf import settings
-
+import os
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -39,24 +39,27 @@ CORS_ALLOWED_ORIGINS = [
     'https://www.cctv.indusvision.in',
 ]
 
-ALLOWED_HOSTS = ['*','localhost', '127.0.0.1', 'cctv.indusvision.in', 'www.cctv.indusvision.in']
+ALLOWED_HOSTS = ['*','localhost', '127.0.0.1', 'cctv.indusvision.in', 'www.cctv.indusvision.in','cctv.localhost']
 
 
 # Application definition
 
 INSTALLED_APPS = [
+
+    'daphne',
+
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-
+    'channels',
     'camera_feed_app',
+    'users',
     'rest_framework',
     'drf_yasg',
     'corsheaders',
-    'users',
 ]
 
 MIDDLEWARE = [
@@ -88,6 +91,10 @@ TEMPLATES = [
     },
 ]
 
+
+ASGI_APPLICATION = 'camera_feed_proj.asgi.application'
+
+
 WSGI_APPLICATION = 'camera_feed_proj.wsgi.application'
 
 SWAGGER_SETTINGS = {
@@ -104,9 +111,15 @@ SWAGGER_SETTINGS = {
 }
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-    )
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        "rest_framework_simplejwt.authentication.JWTAuthentication"
+    ],
+}
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',  # This uses Redis for Channels layer
+    }
 }
 
 SIMPLE_JWT = {
@@ -198,7 +211,12 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'site', 'static')
+
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'site', 'static', 'build')
+]
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
