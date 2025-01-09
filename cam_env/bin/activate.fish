@@ -33,7 +33,7 @@ end
 # Unset irrelevant variables.
 deactivate nondestructive
 
-set -gx VIRTUAL_ENV /home/sai/Camera/HUL_CameraAPP/cam_env
+set -gx VIRTUAL_ENV /home/indusvision/HUL_CameraAPP/cam_env
 
 set -gx _OLD_VIRTUAL_PATH $PATH
 set -gx PATH "$VIRTUAL_ENV/"bin $PATH
