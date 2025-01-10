@@ -13,6 +13,10 @@ class CameraStreamManager:
     def __init__(self, camera_url):
         self.camera_url = camera_url
         self.capture = cv2.VideoCapture(camera_url)
+        if not self.capture.isOpened():
+            logger.error(f"Failed to open stream for {camera_url}")
+        else:
+            logger.info(f"Stream opened for {camera_url}")
         self.is_running = self.capture.isOpened()
 
     def read_frame(self):
@@ -20,22 +24,26 @@ class CameraStreamManager:
             ret, frame = self.capture.read()
             if ret:
                 _, jpeg_frame = cv2.imencode('.jpg', frame)
+                logger.info(f"Frame successfully encoded for {self.camera_url}")
                 return base64.b64encode(jpeg_frame).decode('utf-8')
+            else:
+                logger.error(f"Failed to capture frame for {self.camera_url}")
         return None
 
     def stop(self):
         if self.capture.isOpened():
             self.capture.release()
         self.is_running = False
+        logger.info(f"Stream stopped for {self.camera_url}")
 
 
 # Shared camera streams
 shared_camera_streams = {}
 
-
 class CameraStreamConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.camera_id = self.scope['url_route']['kwargs']['camera_id']
+        logger.info(f"Attempting to connect to Camera ID {self.camera_id}")
 
         try:
             # Fetch camera details from the database
@@ -52,6 +60,7 @@ class CameraStreamConsumer(AsyncWebsocketConsumer):
                 await self.close()
 
             await self.accept()
+            logger.info(f"Connection accepted for Camera ID {self.camera_id}")
 
             # Start sending frames to the frontend
             await self.send_frames()
@@ -69,9 +78,11 @@ class CameraStreamConsumer(AsyncWebsocketConsumer):
                     logger.error(f"Failed to fetch frame for Camera ID {self.camera_id}.")
                     break
                 await self.send(text_data=json.dumps({"frame": frame_data}))
+                await asyncio.sleep(0.05)  # Control the frame rate to avoid high CPU usage
         except Exception as e:
             logger.error(f"Error during frame transmission: {str(e)}")
         finally:
+            logger.info(f"Closing connection for Camera ID {self.camera_id}")
             await self.close()
 
     async def disconnect(self, close_code):
@@ -88,6 +99,7 @@ class CameraStreamConsumer(AsyncWebsocketConsumer):
         Fetch the camera instance from the database by its ID.
         """
         return Camera.objects.get(pk=camera_id)
+
 
 
 #############################################################################################################################################
