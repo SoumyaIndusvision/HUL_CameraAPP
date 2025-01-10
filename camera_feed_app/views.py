@@ -260,77 +260,95 @@ def check_camera_status(camera_url):
         return True  # Camera is active
     return False  # Camera is inactive
 
-async def stream_camera_feed_via_websocket(camera, websocket):
-    """
-    Streams the video feed from the camera via WebSocket.
-    """
-    try:
-        # Construct the RTSP URL using the camera's credentials
-        camera_url = f"rtsp://{camera.username}:{camera.password}@{camera.ip_address}:{camera.port}/cam/realmonitor?channel=1&subtype=0"
-        logger.info(f"Starting camera stream at {camera_url}")
+# async def stream_camera_feed_via_websocket(camera, websocket):
+#     """
+#     Streams the video feed from the camera via WebSocket.
+#     """
+#     try:
+#         # Construct the RTSP URL using the camera's credentials
+#         camera_url = f"rtsp://{camera.username}:{camera.password}@{camera.ip_address}:{camera.port}/cam/realmonitor?channel=1&subtype=0"
+#         logger.info(f"Starting camera stream at {camera_url}")
 
-        if not check_camera_status(camera_url):
-            logger.error(f"Unable to connect to the camera feed at {camera_url}")
-            await websocket.send(text_data="Unable to connect to the camera feed.")
-            return
+#         if not check_camera_status(camera_url):
+#             logger.error(f"Unable to connect to the camera feed at {camera_url}")
+#             await websocket.send(text_data="Unable to connect to the camera feed.")
+#             return
 
-        cap = cv2.VideoCapture(camera_url)
-        try:
-            while True:
-                if not cap.isOpened():
-                    logger.warning("Camera feed disconnected. Attempting to reconnect...")
-                    cap.release()
-                    cap = cv2.VideoCapture(camera_url)
-                    continue
+#         cap = cv2.VideoCapture(camera_url)
+#         try:
+#             while True:
+#                 if not cap.isOpened():
+#                     logger.warning("Camera feed disconnected. Attempting to reconnect...")
+#                     cap.release()
+#                     cap = cv2.VideoCapture(camera_url)
+#                     continue
 
-                ret, frame = cap.read()
-                if not ret:
-                    logger.warning("Failed to read frame. Reconnecting...")
-                    cap.release()
-                    cap = cv2.VideoCapture(camera_url)
-                    continue
+#                 ret, frame = cap.read()
+#                 if not ret:
+#                     logger.warning("Failed to read frame. Reconnecting...")
+#                     cap.release()
+#                     cap = cv2.VideoCapture(camera_url)
+#                     continue
 
-                _, jpeg = cv2.imencode('.jpg', frame)
-                frame_bytes = jpeg.tobytes()
+#                 _, jpeg = cv2.imencode('.jpg', frame)
+#                 frame_bytes = jpeg.tobytes()
 
-                # Send the frame as binary data through WebSocket
-                await websocket.send(bytes_data=frame_bytes)
+#                 # Send the frame as binary data through WebSocket
+#                 await websocket.send(bytes_data=frame_bytes)
 
-        except Exception as e:
-            logger.error(f"Error in WebSocket stream: {e}")
-        finally:
-            cap.release()
-    except Exception as e:
-        logger.error(f"Error while streaming camera feed: {e}")
-        await websocket.close()
+#         except Exception as e:
+#             logger.error(f"Error in WebSocket stream: {e}")
+#         finally:
+#             cap.release()
+#     except Exception as e:
+#         logger.error(f"Error while streaming camera feed: {e}")
+#         await websocket.close()
 
+
+
+# class CameraStreamView(APIView):
+#     """
+#     APIView to fetch camera details and provide WebSocket connection details.
+#     """
+#     def get(self, request, pk=None):
+#         try:
+#             # Fetch the camera instance based on its ID
+#             camera = get_object_or_404(Camera, pk=pk)
+
+#             # # Determine the protocol based on the environment
+#             # protocol = "wss" if request.is_secure() else "ws"  # Use "wss" if HTTPS is used
+
+#             # Provide the WebSocket URL for the client to connect
+#             websocket_url = f"ws://{request.get_host()}/ws/camera/{pk}/stream/"
+#             return Response(
+#                 {"websocket_url": websocket_url, "status": status.HTTP_200_OK},
+#                 status=status.HTTP_200_OK
+#             )
+#         except Exception as e:
+#             logger.error(f"Unexpected error in fetching camera details: {e}")
+#             return Response(
+#                 {"message": "An unexpected error occurred.", "status": status.HTTP_500_INTERNAL_SERVER_ERROR},
+#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#             )
 
 
 class CameraStreamView(APIView):
-    """
-    APIView to fetch camera details and provide WebSocket connection details.
-    """
     def get(self, request, pk=None):
         try:
             # Fetch the camera instance based on its ID
             camera = get_object_or_404(Camera, pk=pk)
 
-            # # Determine the protocol based on the environment
-            # protocol = "wss" if request.is_secure() else "ws"  # Use "wss" if HTTPS is used
-
-            # Provide the WebSocket URL for the client to connect
+            # Provide the WebSocket URL for the frontend to connect
             websocket_url = f"ws://{request.get_host()}/ws/camera/{pk}/stream/"
             return Response(
                 {"websocket_url": websocket_url, "status": status.HTTP_200_OK},
                 status=status.HTTP_200_OK
             )
         except Exception as e:
-            logger.error(f"Unexpected error in fetching camera details: {e}")
             return Response(
                 {"message": "An unexpected error occurred.", "status": status.HTTP_500_INTERNAL_SERVER_ERROR},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
 
 # def stream_camera_feed(camera):
 #     """
