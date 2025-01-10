@@ -1,6 +1,8 @@
+# from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, status
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from .models import Cluster, Machine, Camera
@@ -10,13 +12,12 @@ from .serializers import (
     CameraSerializer,
 )
 
-
 import logging
 import cv2
-# from django.http import StreamingHttpResponse
-from rest_framework.views import APIView
-from rest_framework.response import Response
 
+
+# Set up logging for debugging
+logger = logging.getLogger(__name__)
 
 
 class ClusterViewSet(viewsets.ViewSet):
@@ -245,10 +246,7 @@ class CameraViewSet(viewsets.ViewSet):
         camera.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
     
-    
 
-# Set up logging for debugging
-logger = logging.getLogger(__name__)
 
 def check_camera_status(camera_url):
     """
@@ -259,6 +257,26 @@ def check_camera_status(camera_url):
         cap.release()
         return True  # Camera is active
     return False  # Camera is inactive
+
+class CameraStreamView(APIView):
+    def get(self, request, pk=None):
+        try:
+            # Fetch the camera instance based on its ID
+            camera = get_object_or_404(Camera, pk=pk)
+
+            # Provide the WebSocket URL for the frontend to connect
+            websocket_url = f"ws://{request.get_host()}/ws/camera/{pk}/stream/"
+            return Response(
+                {"websocket_url": websocket_url, "status": status.HTTP_200_OK},
+                status=status.HTTP_200_OK
+            )
+        except Exception as e:
+            return Response(
+                {"message": "An unexpected error occurred.", "status": status.HTTP_500_INTERNAL_SERVER_ERROR},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+#############################################################################################################################################
 
 # async def stream_camera_feed_via_websocket(camera, websocket):
 #     """
@@ -331,24 +349,7 @@ def check_camera_status(camera_url):
 #                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
 #             )
 
-
-class CameraStreamView(APIView):
-    def get(self, request, pk=None):
-        try:
-            # Fetch the camera instance based on its ID
-            camera = get_object_or_404(Camera, pk=pk)
-
-            # Provide the WebSocket URL for the frontend to connect
-            websocket_url = f"ws://{request.get_host()}/ws/camera/{pk}/stream/"
-            return Response(
-                {"websocket_url": websocket_url, "status": status.HTTP_200_OK},
-                status=status.HTTP_200_OK
-            )
-        except Exception as e:
-            return Response(
-                {"message": "An unexpected error occurred.", "status": status.HTTP_500_INTERNAL_SERVER_ERROR},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+#############################################################################################################################################
 
 # def stream_camera_feed(camera):
 #     """
