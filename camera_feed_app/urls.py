@@ -12,8 +12,10 @@ router = DefaultRouter()
 router.register(r'clusters', ClusterViewSet, basename='clusters')
 router.register(r'machines', MachineViewSet, basename='machines')
 router.register(r'cameras', CameraViewSet, basename='cameras')
-router.register(r'stream', CameraStreamView, basename='camera_stream')
+# router.register(r'stream', CameraStreamView, basename='camera_stream')
 
 # Extend urlpatterns to include hierarchical filtering endpoints
 urlpatterns = router.urls + [
+    path('camera/<int:pk>/stream/', CameraStreamView.as_view(), name='camera-stream'),
 ]
+

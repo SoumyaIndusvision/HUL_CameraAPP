@@ -1,15 +1,23 @@
+from django.http import StreamingHttpResponse
+from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, status
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from .models import Cluster, Machine, Camera
 from .serializers import (
     ClusterSerializer,
     MachineSerializer,
-    CameraSerializer, CameraDetailSerializer,
-    CameraStreamSerializer
+    CameraSerializer,
 )
-from .streaming import stream_camera_feed
+
+import logging
+import cv2
+
+
+# Set up logging for debugging
+logger = logging.getLogger(__name__)
 
 
 class ClusterViewSet(viewsets.ViewSet):
@@ -80,12 +88,6 @@ class ClusterViewSet(viewsets.ViewSet):
         except Cluster.DoesNotExist:
             return Response({'message': 'Cluster not found', "status": status.HTTP_404_NOT_FOUND}, status=status.HTTP_404_NOT_FOUND)
     
-from drf_yasg.utils import swagger_auto_schema
-from drf_yasg import openapi
-from rest_framework import viewsets, status
-from rest_framework.response import Response
-from .models import Machine
-from .serializers import MachineSerializer
 
 class MachineViewSet(viewsets.ViewSet):
     """
@@ -244,23 +246,207 @@ class CameraViewSet(viewsets.ViewSet):
         camera.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
     
+
+def check_camera_status(camera_url):
+    """
+    Check if the camera is accessible and return its status.
+    """
+    cap = cv2.VideoCapture(camera_url)
+    if cap.isOpened():
+        cap.release()
+        return True  # Camera is active
+    return False  # Camera is inactive
+
+def stream_camera_feed(camera):
+    """
+    Streams the video feed from the camera.
+    """
+    try:
+        # Construct the RTSP URL using the camera's credentials
+        camera_url = f"rtsp://{camera.username}:{camera.password}@{camera.ip_address}:{camera.port}/cam/realmonitor?channel=1&subtype=0"
+        logger.info(f"Checking camera connection at {camera_url}")
+        
+        # Check if the camera is active
+        if not check_camera_status(camera_url):
+            logger.error(f"Unable to connect to the camera feed at {camera_url}")
+            return None
+        
+        # Function to stream the video as MJPEG
+        def generate():
+            cap = cv2.VideoCapture(camera_url)
+            try:
+                while True:
+                    if not cap.isOpened():
+                        logger.warning("Camera feed disconnected. Attempting to reconnect...")
+                        cap.release()
+                        cap = cv2.VideoCapture(camera_url)
+                        continue
+                    
+                    ret, frame = cap.read()
+                    if not ret:
+                        logger.warning("Failed to read frame. Reconnecting...")
+                        cap.release()
+                        cap = cv2.VideoCapture(camera_url)
+                        continue
+                    
+                    _, jpeg = cv2.imencode('.jpg', frame)
+                    frame = jpeg.tobytes()
+                    yield (b'--frame\r\n'
+                           b'Content-Type: image/jpeg\r\n'
+                           b'Content-Length: ' + str(len(frame)).encode() + b'\r\n\r\n' +
+                           frame +
+                           b'\r\n')
+            except GeneratorExit:
+                logger.info("Client disconnected. Closing stream.")
+            except Exception as e:
+                logger.error(f"Error in stream: {e}")
+            finally:
+                cap.release()
+
+        return StreamingHttpResponse(
+            generate(),
+            content_type="multipart/x-mixed-replace; boundary=frame"
+        )
+    
+    except Exception as e:
+        logger.error(f"Error while streaming camera feed: {str(e)}")
+        return None
+
+
+
+class CameraStreamView(APIView):
+    """
+    APIView for streaming camera feeds by Camera ID.
+    """
+    def get(self, request, pk=None):
+        try:
+            # Fetch the camera instance based on its ID
+            camera = Camera.objects.get(pk=pk)
+
+            # Stream the camera feed
+            stream = stream_camera_feed(camera)
+            if stream is not None:
+                return stream
+            else:
+                return Response(
+                    {"message": "Unable to stream the camera feed.", "status": status.HTTP_500_INTERNAL_SERVER_ERROR},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+        except Camera.DoesNotExist:
+            return Response(
+                {"message": "Camera not found.", "status": status.HTTP_404_NOT_FOUND},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Unexpected error in streaming camera feed: {e}")
+            return Response(
+                {"message": "An unexpected error occurred.", "status": status.HTTP_500_INTERNAL_SERVER_ERROR},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+#############################################################################################################################################
     
 
-class CameraStreamView(viewsets.ViewSet):
-    """ViewSet for streaming camera feeds"""
 
-    @swagger_auto_schema(
-        operation_description="For Streaming the Camera Feed by the Camera ID.",
-        # responses={200: CameraStreamSerializer}
-    )
-    def retrieve(self, request, pk=None):
-        try:
-            camera = Camera.objects.get(pk=pk)
-            # Simulate streaming logic from the streaming module
-            stream_data = stream_camera_feed(camera)
-            serializer = CameraStreamSerializer(data=stream_data)
-            if serializer.is_valid():
-                return Response(serializer.data)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        except Camera.DoesNotExist:
-            return Response({"status": "inactive", "message": "Camera not found"}, status=status.HTTP_404_NOT_FOUND)
+# def check_camera_status(camera_url):
+#     """
+#     Check if the camera is accessible and return its status.
+#     """
+#     cap = cv2.VideoCapture(camera_url)
+#     if cap.isOpened():
+#         cap.release()
+#         return True  # Camera is active
+#     return False  # Camera is inactive
+
+# class CameraStreamView(APIView):
+#     def get(self, request, pk=None):
+#         try:
+#             # Fetch the camera instance based on its ID
+#             camera = get_object_or_404(Camera, pk=pk)
+
+#             # Provide the WebSocket URL for the frontend to connect
+#             websocket_url = f"ws://{request.get_host()}/ws/camera/{pk}/stream/"
+#             return Response(
+#                 {"websocket_url": websocket_url, "status": status.HTTP_200_OK},
+#                 status=status.HTTP_200_OK
+#             )
+#         except Exception as e:
+#             return Response(
+#                 {"message": "An unexpected error occurred.", "status": status.HTTP_500_INTERNAL_SERVER_ERROR},
+#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#             )
+        
+#############################################################################################################################################
+
+# async def stream_camera_feed_via_websocket(camera, websocket):
+#     """
+#     Streams the video feed from the camera via WebSocket.
+#     """
+#     try:
+#         # Construct the RTSP URL using the camera's credentials
+#         camera_url = f"rtsp://{camera.username}:{camera.password}@{camera.ip_address}:{camera.port}/cam/realmonitor?channel=1&subtype=0"
+#         logger.info(f"Starting camera stream at {camera_url}")
+
+#         if not check_camera_status(camera_url):
+#             logger.error(f"Unable to connect to the camera feed at {camera_url}")
+#             await websocket.send(text_data="Unable to connect to the camera feed.")
+#             return
+
+#         cap = cv2.VideoCapture(camera_url)
+#         try:
+#             while True:
+#                 if not cap.isOpened():
+#                     logger.warning("Camera feed disconnected. Attempting to reconnect...")
+#                     cap.release()
+#                     cap = cv2.VideoCapture(camera_url)
+#                     continue
+
+#                 ret, frame = cap.read()
+#                 if not ret:
+#                     logger.warning("Failed to read frame. Reconnecting...")
+#                     cap.release()
+#                     cap = cv2.VideoCapture(camera_url)
+#                     continue
+
+#                 _, jpeg = cv2.imencode('.jpg', frame)
+#                 frame_bytes = jpeg.tobytes()
+
+#                 # Send the frame as binary data through WebSocket
+#                 await websocket.send(bytes_data=frame_bytes)
+
+#         except Exception as e:
+#             logger.error(f"Error in WebSocket stream: {e}")
+#         finally:
+#             cap.release()
+#     except Exception as e:
+#         logger.error(f"Error while streaming camera feed: {e}")
+#         await websocket.close()
+
+
+
+# class CameraStreamView(APIView):
+#     """
+#     APIView to fetch camera details and provide WebSocket connection details.
+#     """
+#     def get(self, request, pk=None):
+#         try:
+#             # Fetch the camera instance based on its ID
+#             camera = get_object_or_404(Camera, pk=pk)
+
+#             # # Determine the protocol based on the environment
+#             # protocol = "wss" if request.is_secure() else "ws"  # Use "wss" if HTTPS is used
+
+#             # Provide the WebSocket URL for the client to connect
+#             websocket_url = f"ws://{request.get_host()}/ws/camera/{pk}/stream/"
+#             return Response(
+#                 {"websocket_url": websocket_url, "status": status.HTTP_200_OK},
+#                 status=status.HTTP_200_OK
+#             )
+#         except Exception as e:
+#             logger.error(f"Unexpected error in fetching camera details: {e}")
+#             return Response(
+#                 {"message": "An unexpected error occurred.", "status": status.HTTP_500_INTERNAL_SERVER_ERROR},
+#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#             )
+
+#############################################################################################################################################

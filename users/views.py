@@ -73,7 +73,7 @@ class UserAPIView(viewsets.ViewSet):
             user.set_password(password)  # Hash the password
             user.save()
             return Response({"message": "User created successfully."}, status=status.HTTP_201_CREATED)
-        return Response(serializer.messages, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     # UPDATE USER
     @swagger_auto_schema(
@@ -98,7 +98,7 @@ class UserAPIView(viewsets.ViewSet):
         if serializer.is_valid():
             serializer.save()
             return Response({"message": "User updated successfully."}, status=status.HTTP_200_OK)
-        return Response(serializer.messages, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     # RETRIEVE SINGLE USER
     def retrieve(self, request, pk=None):
