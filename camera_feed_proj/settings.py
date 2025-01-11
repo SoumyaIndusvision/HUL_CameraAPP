@@ -46,7 +46,7 @@ ALLOWED_HOSTS = ['*','localhost', '127.0.0.1', 'cctv.indusvision.in', 'www.cctv.
 
 INSTALLED_APPS = [
 
-    'daphne',
+    # 'daphne',
 
     'django.contrib.admin',
     'django.contrib.auth',
@@ -91,7 +91,7 @@ TEMPLATES = [
 ]
 
 
-ASGI_APPLICATION = 'camera_feed_proj.asgi.application'
+# ASGI_APPLICATION = 'camera_feed_proj.asgi.application'
 
 
 WSGI_APPLICATION = 'camera_feed_proj.wsgi.application'
@@ -115,11 +115,11 @@ REST_FRAMEWORK = {
     ],
 }
 
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer',  # This uses Redis for Channels layer
-    }
-}
+# CHANNEL_LAYERS = {
+#     'default': {
+#         'BACKEND': 'channels.layers.InMemoryChannelLayer',  # This uses Redis for Channels layer
+#     }
+# }
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=2),
